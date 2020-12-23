@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -32,7 +33,12 @@ func uploadAnImage(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println(http.DetectContentType(buff))
+	contentType := http.DetectContentType(buff)
+
+	if contentType != "image/gif" && contentType != "image/png" && contentType != "image/jpeg" {
+		fmt.Println(errors.New("\nError. The file is neither a gif, png or jpeg"))
+		return
+	}
 
 	http.ServeContent(wr, r, handler.Filename, time.Now(), file)
 
