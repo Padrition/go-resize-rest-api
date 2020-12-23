@@ -11,6 +11,9 @@ func index(wr http.ResponseWriter, r *http.Request) {
 	http.ServeFile(wr, r, "resources/html/index.html")
 }
 
+func errorMessage(wr http.ResponseWriter, r *http.Request) {
+	http.ServeFile(wr, r, "resources/html/error.html")
+}
 func uploadAnImage(wr http.ResponseWriter, r *http.Request) {
 
 	r.ParseMultipartForm(32 * 1024 * 1024)
@@ -33,14 +36,12 @@ func uploadAnImage(wr http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	contentType := http.DetectContentType(buff)
-
-	if contentType != "image/gif" && contentType != "image/png" && contentType != "image/jpeg" {
-		fmt.Println(errors.New("\nError. The file is neither a gif, png or jpeg"))
-		return
+	if imageType := http.DetectContentType(buff); imageType != "image/png" && imageType != "image/jpeg" && imageType != "image/gif" {
+		fmt.Println(errors.New("\nEror.A file should be either png, jpeg or gif"))
+		http.Error(wr, "Inavalid file format", http.StatusBadRequest)
+	} else {
+		http.ServeContent(wr, r, handler.Filename, time.Now(), file)
 	}
-
-	http.ServeContent(wr, r, handler.Filename, time.Now(), file)
 
 }
 
