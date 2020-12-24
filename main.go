@@ -3,8 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"image"
+	"image/jpeg"
 	"net/http"
+	"os"
+
+	"github.com/nfnt/resize"
 )
 
 func index(wr http.ResponseWriter, r *http.Request) {
@@ -31,22 +35,22 @@ func uploadAnImage(wr http.ResponseWriter, r *http.Request) {
 		http.Error(wr, "Inavalid file format", http.StatusBadRequest)
 		return
 	}
-	tempFile, err := ioutil.TempFile("resources/images", "upload-*.png")
+
+	img, err := jpeg.Decode(file)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	defer tempFile.Close()
-
-	fileByte, err := ioutil.ReadAll(file)
-	if err != nil {
-		fmt.Println(err)
-	}
-	tempFile.Write(fileByte)
-
+	automaticResize(img)
 }
-func automaticResize() {
+func automaticResize(img image.Image) {
+	m := resize.Resize(500, 0, img, resize.Lanczos2)
+	out, err := os.Create("resources/images/test_resize.jpg")
+	if err != nil {
+		fmt.Println(err)
+	}
 
+	jpeg.Encode(out, m, nil)
 }
 func main() {
 	http.HandleFunc("/", index)
