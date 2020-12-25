@@ -88,12 +88,12 @@ func automaticResize(width uint, imageFile multipart.File, imageType string, hea
 		}
 
 		for _, img := range gifImg.Image {
-			resizedGifImg := resize.Resize(width, 0, img, resize.Lanczos2)
+			resizedGifImg := resize.Resize(200, 0, img, resize.Lanczos3)
 			palettedImg := image.NewPaletted(resizedGifImg.Bounds(), img.Palette)
 			draw.FloydSteinberg.Draw(palettedImg, resizedGifImg.Bounds(), resizedGifImg, image.ZP)
 
 			newGifImg.Image = append(newGifImg.Image, palettedImg)
-			newGifImg.Delay = append(newGifImg.Delay, 100)
+			newGifImg.Delay = append(newGifImg.Delay, 25)
 		}
 
 		gif.EncodeAll(out, &newGifImg)
