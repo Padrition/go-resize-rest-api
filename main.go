@@ -4,7 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/draw"
+	"image/gif"
 	"image/jpeg"
+	"image/png"
+	"mime/multipart"
 	"net/http"
 	"os"
 
@@ -19,38 +23,83 @@ func uploadAnImage(wr http.ResponseWriter, r *http.Request) {
 
 	r.ParseMultipartForm(32 * 1024 * 1024)
 
-	file, handler, err := r.FormFile("pic")
+	imageFile, header, err := r.FormFile("imageFile")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	defer file.Close()
+	defer imageFile.Close()
 
-	fmt.Printf("\nFile Name: %+v", handler.Filename)
-	fmt.Printf("\nFile Name: %+v", handler.Size)
-	fmt.Printf("\nMIME Name: %+v\n", handler.Header)
-
-	if imageType := handler.Header.Get("Content-Type"); imageType != "image/png" && imageType != "image/jpeg" && imageType != "image/gif" {
+	imageType := header.Header.Get("Content-Type")
+	if imageType != "image/png" && imageType != "image/jpeg" && imageType != "image/gif" {
 		fmt.Println(errors.New("\nEror.A file should be either png, jpeg or gif"))
 		http.Error(wr, "Inavalid file format", http.StatusBadRequest)
 		return
 	}
 
-	img, err := jpeg.Decode(file)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	automaticResize(img)
+	automaticResize(500, imageFile, imageType, header)
 }
-func automaticResize(img image.Image) {
-	m := resize.Resize(500, 0, img, resize.Lanczos2)
-	out, err := os.Create("resources/images/test_resize.jpg")
-	if err != nil {
-		fmt.Println(err)
+
+func automaticResize(width uint, imageFile multipart.File, imageType string, header *multipart.FileHeader) {
+	switch imageType {
+	case "image/jpeg":
+		img, err := jpeg.Decode(imageFile)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		jpegImg := resize.Resize(width, 0, img, resize.Lanczos2)
+
+		out, err := os.Create("resources/images/" + header.Filename)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		jpeg.Encode(out, jpegImg, nil)
+
+		break
+
+	case "image/png":
+		img, err := png.Decode(imageFile)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		pngImg := resize.Resize(width, 0, img, resize.Lanczos2)
+
+		out, err := os.Create("resources/images/" + header.Filename)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		png.Encode(out, pngImg)
+		break
+
+	case "image/gif":
+		newGifImg := gif.GIF{}
+		gifImg, err := gif.DecodeAll(imageFile)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		out, err := os.Create("resources/images/" + header.Filename)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		for _, img := range gifImg.Image {
+			resizedGifImg := resize.Resize(width, 0, img, resize.Lanczos2)
+			palettedImg := image.NewPaletted(resizedGifImg.Bounds(), img.Palette)
+			draw.FloydSteinberg.Draw(palettedImg, resizedGifImg.Bounds(), resizedGifImg, image.ZP)
+
+			newGifImg.Image = append(newGifImg.Image, palettedImg)
+			newGifImg.Delay = append(newGifImg.Delay, 100)
+		}
+
+		gif.EncodeAll(out, &newGifImg)
+		break
 	}
 
-	jpeg.Encode(out, m, nil)
 }
 func main() {
 	http.HandleFunc("/", index)
