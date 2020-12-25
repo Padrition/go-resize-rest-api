@@ -19,7 +19,7 @@ func index(wr http.ResponseWriter, r *http.Request) {
 	http.ServeFile(wr, r, "resources/html/index.html")
 }
 
-func uploadAnImage(wr http.ResponseWriter, r *http.Request) {
+func upload(rw http.ResponseWriter, r *http.Request) {
 
 	r.ParseMultipartForm(32 * 1024 * 1024)
 
@@ -33,16 +33,17 @@ func uploadAnImage(wr http.ResponseWriter, r *http.Request) {
 	imageType := header.Header.Get("Content-Type")
 	if imageType != "image/png" && imageType != "image/jpeg" && imageType != "image/gif" {
 		fmt.Println(errors.New("\nEror.A file should be either png, jpeg or gif"))
-		http.Error(wr, "Inavalid file format", http.StatusBadRequest)
+		http.Error(rw, "Inavalid file format", http.StatusBadRequest)
 		return
 	}
 
-	automaticResize(500, imageFile, imageType, header)
+	resizeAnImage(500, imageFile, imageType, header)
 }
 
-func automaticResize(width uint, imageFile multipart.File, imageType string, header *multipart.FileHeader) {
+func resizeAnImage(width uint, imageFile multipart.File, imageType string, header *multipart.FileHeader) {
 	switch imageType {
 	case "image/jpeg":
+
 		img, err := jpeg.Decode(imageFile)
 		if err != nil {
 			fmt.Println(err)
@@ -56,7 +57,6 @@ func automaticResize(width uint, imageFile multipart.File, imageType string, hea
 		}
 
 		jpeg.Encode(out, jpegImg, nil)
-
 		break
 
 	case "image/png":
@@ -88,7 +88,7 @@ func automaticResize(width uint, imageFile multipart.File, imageType string, hea
 		}
 
 		for _, img := range gifImg.Image {
-			resizedGifImg := resize.Resize(200, 0, img, resize.Lanczos3)
+			resizedGifImg := resize.Resize(width, 0, img, resize.Lanczos2)
 			palettedImg := image.NewPaletted(resizedGifImg.Bounds(), img.Palette)
 			draw.FloydSteinberg.Draw(palettedImg, resizedGifImg.Bounds(), resizedGifImg, image.ZP)
 
@@ -97,12 +97,14 @@ func automaticResize(width uint, imageFile multipart.File, imageType string, hea
 		}
 
 		gif.EncodeAll(out, &newGifImg)
+
 		break
 	}
 
 }
+
 func main() {
 	http.HandleFunc("/", index)
-	http.HandleFunc("/upload", uploadAnImage)
+	http.HandleFunc("/upload", upload)
 	http.ListenAndServe(":8080", nil)
 }
