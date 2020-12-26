@@ -36,7 +36,7 @@ func autoResize(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fileName := header.Filename
-	resizeAnImage(imageFile, 1000, imageType, fileName)
+	resizeAnImage(rw, imageFile, 1000, imageType, fileName)
 }
 
 func upload(rw http.ResponseWriter, r *http.Request) {
@@ -86,11 +86,7 @@ func upload(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func resizeAnImage(imageFile multipart.File, width uint, imageType string, fileName string) {
-	out, err := os.Create("resources/images/" + fileName)
-	if err != nil {
-		fmt.Println(err)
-	}
+func resizeAnImage(rw http.ResponseWriter, imageFile multipart.File, width uint, imageType string, fileName string) {
 	switch imageType {
 	case "image/jpeg":
 
@@ -101,7 +97,8 @@ func resizeAnImage(imageFile multipart.File, width uint, imageType string, fileN
 
 		jpegImg := resize.Resize(width, 0, img, resize.Lanczos2)
 
-		jpeg.Encode(out, jpegImg, nil)
+		rw.Header().Set("Content-Type", "image/jpeg")
+		jpeg.Encode(rw, jpegImg, nil)
 		break
 
 	case "image/png":
@@ -112,7 +109,8 @@ func resizeAnImage(imageFile multipart.File, width uint, imageType string, fileN
 
 		pngImg := resize.Resize(width, 0, img, resize.Lanczos2)
 
-		png.Encode(out, pngImg)
+		rw.Header().Set("Content-Type", "image/png")
+		png.Encode(rw, pngImg)
 		break
 
 	case "image/gif":
@@ -130,8 +128,8 @@ func resizeAnImage(imageFile multipart.File, width uint, imageType string, fileN
 			newGifImg.Image = append(newGifImg.Image, palettedImg)
 			newGifImg.Delay = append(newGifImg.Delay, 25)
 		}
-
-		gif.EncodeAll(out, &newGifImg)
+		rw.Header().Set("Content-Type", "image/gif")
+		gif.EncodeAll(rw, &newGifImg)
 
 		break
 	}
