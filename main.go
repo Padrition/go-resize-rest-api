@@ -15,8 +15,28 @@ import (
 	"github.com/nfnt/resize"
 )
 
-func index(wr http.ResponseWriter, r *http.Request) {
-	http.ServeFile(wr, r, "resources/html/index.html")
+func index(rw http.ResponseWriter, r *http.Request) {
+	http.ServeFile(rw, r, "resources/html/index.html")
+}
+
+func autoResize(rw http.ResponseWriter, r *http.Request) {
+	r.ParseMultipartForm(32 * 1024 * 1024)
+
+	imageFile, header, err := r.FormFile("imageFile")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer imageFile.Close()
+
+	imageType := header.Header.Get("Content-Type")
+	if imageType != "image/png" && imageType != "image/jpeg" && imageType != "image/gif" {
+		fmt.Println(errors.New("\nEror.A file should be either png, jpeg or gif"))
+		http.Error(rw, "Inavalid file format", http.StatusBadRequest)
+		return
+	}
+	fileName := header.Filename
+	resizeAnImage(imageFile, 1000, imageType, fileName)
 }
 
 func upload(rw http.ResponseWriter, r *http.Request) {
@@ -66,7 +86,11 @@ func upload(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func resizeAnImage(imageFile multipart.File, width uint, imageType string, header *multipart.FileHeader) {
+func resizeAnImage(imageFile multipart.File, width uint, imageType string, fileName string) {
+	out, err := os.Create("resources/images/" + fileName)
+	if err != nil {
+		fmt.Println(err)
+	}
 	switch imageType {
 	case "image/jpeg":
 
@@ -76,11 +100,6 @@ func resizeAnImage(imageFile multipart.File, width uint, imageType string, heade
 		}
 
 		jpegImg := resize.Resize(width, 0, img, resize.Lanczos2)
-
-		out, err := os.Create("resources/images/" + header.Filename)
-		if err != nil {
-			fmt.Println(err)
-		}
 
 		jpeg.Encode(out, jpegImg, nil)
 		break
@@ -93,22 +112,12 @@ func resizeAnImage(imageFile multipart.File, width uint, imageType string, heade
 
 		pngImg := resize.Resize(width, 0, img, resize.Lanczos2)
 
-		out, err := os.Create("resources/images/" + header.Filename)
-		if err != nil {
-			fmt.Println(err)
-		}
-
 		png.Encode(out, pngImg)
 		break
 
 	case "image/gif":
 		newGifImg := gif.GIF{}
 		gifImg, err := gif.DecodeAll(imageFile)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		out, err := os.Create("resources/images/" + header.Filename)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -129,8 +138,13 @@ func resizeAnImage(imageFile multipart.File, width uint, imageType string, heade
 
 }
 
-func main() {
+func setupRouts() {
 	http.HandleFunc("/", index)
 	http.HandleFunc("/upload", upload)
+	http.HandleFunc("/resize", autoResize)
 	http.ListenAndServe(":8080", nil)
+}
+
+func main() {
+	setupRouts()
 }
