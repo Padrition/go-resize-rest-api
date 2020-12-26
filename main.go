@@ -37,10 +37,36 @@ func upload(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resizeAnImage(500, imageFile, imageType, header)
+	out, err := os.Create("resources/images/" + header.Filename)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	switch imageType {
+	case "image/png":
+		img, err := png.Decode(imageFile)
+		if err != nil {
+			fmt.Println(err)
+		}
+		png.Encode(out, img)
+		break
+	case "image/jpeg":
+		img, err := jpeg.Decode(imageFile)
+		if err != nil {
+			fmt.Println(err)
+		}
+		jpeg.Encode(out, img, nil)
+		break
+	case "image/gif":
+		img, err := gif.DecodeAll(imageFile)
+		if err != nil {
+			fmt.Println(err)
+		}
+		gif.EncodeAll(out, img)
+	}
 }
 
-func resizeAnImage(width uint, imageFile multipart.File, imageType string, header *multipart.FileHeader) {
+func resizeAnImage(imageFile multipart.File, width uint, imageType string, header *multipart.FileHeader) {
 	switch imageType {
 	case "image/jpeg":
 
