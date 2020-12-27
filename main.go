@@ -16,31 +16,43 @@ import (
 	"github.com/nfnt/resize"
 )
 
+type imageData struct {
+	imageFile multipart.File
+	header    *multipart.FileHeader
+	imageType string
+	imageName string
+}
+
+func ifErrNil(err error) {
+	if err != nil {
+		fmt.Println(err)
+	}
+}
 func index(rw http.ResponseWriter, r *http.Request) {
 	http.ServeFile(rw, r, "resources/html/index.html")
 }
 
 func autoResize(rw http.ResponseWriter, r *http.Request) {
-	imageFile, header, imageType, width, height := upload(rw, r)
+	var data imageData
+	data, width, height := upload(rw, r)
 
-	fileName := header.Filename
-	resizeAnImage(rw, imageFile, uint(width), uint(height), imageType, fileName)
+	data.imageName = data.header.Filename
+	resizeAnImage(rw, data, uint(width), uint(height))
 }
 
 func uploadAnImage(rw http.ResponseWriter, r *http.Request) {
+	var data imageData
+	data, _, _ = upload(rw, r)
 
-	imageFile, header, imageType, _, _ := upload(rw, r)
+	out, err := os.Create("resources/images/" + data.header.Filename)
+	ifErrNil(err)
 
-	out, err := os.Create("resources/images/" + header.Filename)
-	if err != nil {
-		fmt.Println(err)
-	}
-	if imageType != "image/gif" {
-		img, _, err := image.Decode(imageFile)
-		if err != nil {
-			fmt.Println(err)
-		}
-		switch imageType {
+	defer out.Close()
+	if data.imageType != "image/gif" {
+		img, _, err := image.Decode(data.imageFile)
+		ifErrNil(err)
+
+		switch data.imageType {
 		case "image/jpeg":
 			jpeg.Encode(out, img, nil)
 			break
@@ -49,29 +61,24 @@ func uploadAnImage(rw http.ResponseWriter, r *http.Request) {
 			break
 		}
 	} else {
-		imgGif, err := gif.DecodeAll(imageFile)
-		if err != nil {
-			fmt.Println(err)
-		}
+		imgGif, err := gif.DecodeAll(data.imageFile)
+		ifErrNil(err)
+
 		gif.EncodeAll(out, imgGif)
 	}
 }
 
-func upload(rw http.ResponseWriter, r *http.Request) (multipart.File, *multipart.FileHeader, string, uint64, uint64) {
+func upload(rw http.ResponseWriter, r *http.Request) (imageData, uint64, uint64) {
 	r.ParseMultipartForm(32 * 1024 * 1024)
 
 	imageFile, header, err := r.FormFile("imageFile")
+	ifErrNil(err)
+
 	width, err := strconv.ParseUint((r.FormValue("width")), 10, 32)
-	if err != nil {
-		fmt.Println(err)
-	}
+	ifErrNil(err)
 	height, err := strconv.ParseUint((r.FormValue("height")), 10, 32)
-	if err != nil {
-		fmt.Println(err)
-	}
-	if err != nil {
-		fmt.Println(err)
-	}
+	ifErrNil(err)
+
 	defer imageFile.Close()
 
 	imageType := header.Header.Get("Content-Type")
@@ -79,17 +86,18 @@ func upload(rw http.ResponseWriter, r *http.Request) (multipart.File, *multipart
 		fmt.Println(errors.New("\nEror.A file should be either png, jpeg or gif"))
 		http.Error(rw, "Inavalid file format", http.StatusBadRequest)
 	}
-	return imageFile, header, imageType, width, height
+
+	data := imageData{imageFile: imageFile, header: header, imageType: imageType}
+
+	return data, width, height
 }
 
-func resizeAnImage(rw http.ResponseWriter, imageFile multipart.File, width uint, height uint, imageType string, fileName string) {
-	if imageType != "image/gif" {
-		img, _, err := image.Decode(imageFile)
-		if err != nil {
-			fmt.Println(err)
-		}
+func resizeAnImage(rw http.ResponseWriter, data imageData, width uint, height uint) {
+	if data.imageType != "image/gif" {
+		img, _, err := image.Decode(data.imageFile)
+		ifErrNil(err)
 		resizedImages := resize.Resize(width, height, img, resize.Lanczos2)
-		switch imageType {
+		switch data.imageType {
 		case "image/jpeg":
 			rw.Header().Set("Content-Type", "image/jpeg")
 			jpeg.Encode(rw, resizedImages, nil)
@@ -102,10 +110,8 @@ func resizeAnImage(rw http.ResponseWriter, imageFile multipart.File, width uint,
 		}
 	} else {
 		newGifImg := gif.GIF{}
-		gifImg, err := gif.DecodeAll(imageFile)
-		if err != nil {
-			fmt.Println(err)
-		}
+		gifImg, err := gif.DecodeAll(data.imageFile)
+		ifErrNil(err)
 
 		for _, img := range gifImg.Image {
 			resizedGifImg := resize.Resize(width, height, img, resize.Lanczos2)
