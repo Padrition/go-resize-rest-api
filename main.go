@@ -61,49 +61,47 @@ func upload(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println(err)
 	}
-
-	switch imageType {
-	case "image/png":
-		img, err := png.Decode(imageFile)
+	if imageType != "image/gif" {
+		img, _, err := image.Decode(imageFile)
 		if err != nil {
 			fmt.Println(err)
 		}
-		png.Encode(out, img)
-		break
-	case "image/jpeg":
-		img, err := jpeg.Decode(imageFile)
+		switch imageType {
+		case "image/jpeg":
+			jpeg.Encode(out, img, nil)
+			break
+		case "image/png":
+			png.Encode(out, img)
+			break
+		}
+	} else {
+		imgGif, err := gif.DecodeAll(imageFile)
 		if err != nil {
 			fmt.Println(err)
 		}
-		jpeg.Encode(out, img, nil)
-		break
-	case "image/gif":
-		img, err := gif.DecodeAll(imageFile)
-		if err != nil {
-			fmt.Println(err)
-		}
-		gif.EncodeAll(out, img)
+		gif.EncodeAll(out, imgGif)
 	}
 }
 
 func resizeAnImage(rw http.ResponseWriter, imageFile multipart.File, width uint, imageType string, fileName string) {
-	img, _, err := image.Decode(imageFile)
-	if err != nil {
-		fmt.Println(err)
-	}
-	resizedImages := resize.Resize(width, 0, img, resize.Lanczos2)
-	switch imageType {
-	case "image/jpeg":
-		rw.Header().Set("Content-Type", "image/jpeg")
-		jpeg.Encode(rw, resizedImages, nil)
-		break
+	if imageType != "image/gif" {
+		img, _, err := image.Decode(imageFile)
+		if err != nil {
+			fmt.Println(err)
+		}
+		resizedImages := resize.Resize(width, 0, img, resize.Lanczos2)
+		switch imageType {
+		case "image/jpeg":
+			rw.Header().Set("Content-Type", "image/jpeg")
+			jpeg.Encode(rw, resizedImages, nil)
+			break
 
-	case "image/png":
-		rw.Header().Set("Content-Type", "image/png")
-		png.Encode(rw, resizedImages)
-		break
-
-	case "image/gif":
+		case "image/png":
+			rw.Header().Set("Content-Type", "image/png")
+			png.Encode(rw, resizedImages)
+			break
+		}
+	} else {
 		newGifImg := gif.GIF{}
 		gifImg, err := gif.DecodeAll(imageFile)
 		if err != nil {
@@ -121,9 +119,7 @@ func resizeAnImage(rw http.ResponseWriter, imageFile multipart.File, width uint,
 		rw.Header().Set("Content-Type", "image/gif")
 		gif.EncodeAll(rw, &newGifImg)
 
-		break
 	}
-
 }
 
 func setupRouts() {
