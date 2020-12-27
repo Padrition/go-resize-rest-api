@@ -87,30 +87,20 @@ func upload(rw http.ResponseWriter, r *http.Request) {
 }
 
 func resizeAnImage(rw http.ResponseWriter, imageFile multipart.File, width uint, imageType string, fileName string) {
+	img, _, err := image.Decode(imageFile)
+	if err != nil {
+		fmt.Println(err)
+	}
+	resizedImages := resize.Resize(width, 0, img, resize.Lanczos2)
 	switch imageType {
 	case "image/jpeg":
-
-		img, err := jpeg.Decode(imageFile)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		jpegImg := resize.Resize(width, 0, img, resize.Lanczos2)
-
 		rw.Header().Set("Content-Type", "image/jpeg")
-		jpeg.Encode(rw, jpegImg, nil)
+		jpeg.Encode(rw, resizedImages, nil)
 		break
 
 	case "image/png":
-		img, err := png.Decode(imageFile)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		pngImg := resize.Resize(width, 0, img, resize.Lanczos2)
-
 		rw.Header().Set("Content-Type", "image/png")
-		png.Encode(rw, pngImg)
+		png.Encode(rw, resizedImages)
 		break
 
 	case "image/gif":
