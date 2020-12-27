@@ -20,42 +20,15 @@ func index(rw http.ResponseWriter, r *http.Request) {
 }
 
 func autoResize(rw http.ResponseWriter, r *http.Request) {
-	r.ParseMultipartForm(32 * 1024 * 1024)
+	imageFile, header, imageType := upload(rw, r)
 
-	imageFile, header, err := r.FormFile("imageFile")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer imageFile.Close()
-
-	imageType := header.Header.Get("Content-Type")
-	if imageType != "image/png" && imageType != "image/jpeg" && imageType != "image/gif" {
-		fmt.Println(errors.New("\nEror.A file should be either png, jpeg or gif"))
-		http.Error(rw, "Inavalid file format", http.StatusBadRequest)
-		return
-	}
 	fileName := header.Filename
 	resizeAnImage(rw, imageFile, 1000, imageType, fileName)
 }
 
-func upload(rw http.ResponseWriter, r *http.Request) {
+func uploadAnImage(rw http.ResponseWriter, r *http.Request) {
 
-	r.ParseMultipartForm(32 * 1024 * 1024)
-
-	imageFile, header, err := r.FormFile("imageFile")
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer imageFile.Close()
-
-	imageType := header.Header.Get("Content-Type")
-	if imageType != "image/png" && imageType != "image/jpeg" && imageType != "image/gif" {
-		fmt.Println(errors.New("\nEror.A file should be either png, jpeg or gif"))
-		http.Error(rw, "Inavalid file format", http.StatusBadRequest)
-		return
-	}
+	imageFile, header, imageType := upload(rw, r)
 
 	out, err := os.Create("resources/images/" + header.Filename)
 	if err != nil {
@@ -81,6 +54,23 @@ func upload(rw http.ResponseWriter, r *http.Request) {
 		}
 		gif.EncodeAll(out, imgGif)
 	}
+}
+
+func upload(rw http.ResponseWriter, r *http.Request) (multipart.File, *multipart.FileHeader, string) {
+	r.ParseMultipartForm(32 * 1024 * 1024)
+
+	imageFile, header, err := r.FormFile("imageFile")
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer imageFile.Close()
+
+	imageType := header.Header.Get("Content-Type")
+	if imageType != "image/png" && imageType != "image/jpeg" && imageType != "image/gif" {
+		fmt.Println(errors.New("\nEror.A file should be either png, jpeg or gif"))
+		http.Error(rw, "Inavalid file format", http.StatusBadRequest)
+	}
+	return imageFile, header, imageType
 }
 
 func resizeAnImage(rw http.ResponseWriter, imageFile multipart.File, width uint, imageType string, fileName string) {
@@ -124,7 +114,7 @@ func resizeAnImage(rw http.ResponseWriter, imageFile multipart.File, width uint,
 
 func setupRouts() {
 	http.HandleFunc("/", index)
-	http.HandleFunc("/upload", upload)
+	http.HandleFunc("/upload", uploadAnImage)
 	http.HandleFunc("/resize", autoResize)
 	http.ListenAndServe(":8080", nil)
 }
