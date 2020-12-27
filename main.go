@@ -11,6 +11,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/nfnt/resize"
 )
@@ -20,15 +21,15 @@ func index(rw http.ResponseWriter, r *http.Request) {
 }
 
 func autoResize(rw http.ResponseWriter, r *http.Request) {
-	imageFile, header, imageType := upload(rw, r)
+	imageFile, header, imageType, width, height := upload(rw, r)
 
 	fileName := header.Filename
-	resizeAnImage(rw, imageFile, 1000, imageType, fileName)
+	resizeAnImage(rw, imageFile, uint(width), uint(height), imageType, fileName)
 }
 
 func uploadAnImage(rw http.ResponseWriter, r *http.Request) {
 
-	imageFile, header, imageType := upload(rw, r)
+	imageFile, header, imageType, _, _ := upload(rw, r)
 
 	out, err := os.Create("resources/images/" + header.Filename)
 	if err != nil {
@@ -56,10 +57,18 @@ func uploadAnImage(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func upload(rw http.ResponseWriter, r *http.Request) (multipart.File, *multipart.FileHeader, string) {
+func upload(rw http.ResponseWriter, r *http.Request) (multipart.File, *multipart.FileHeader, string, uint64, uint64) {
 	r.ParseMultipartForm(32 * 1024 * 1024)
 
 	imageFile, header, err := r.FormFile("imageFile")
+	width, err := strconv.ParseUint((r.FormValue("width")), 10, 32)
+	if err != nil {
+		fmt.Println(err)
+	}
+	height, err := strconv.ParseUint((r.FormValue("height")), 10, 32)
+	if err != nil {
+		fmt.Println(err)
+	}
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -70,16 +79,16 @@ func upload(rw http.ResponseWriter, r *http.Request) (multipart.File, *multipart
 		fmt.Println(errors.New("\nEror.A file should be either png, jpeg or gif"))
 		http.Error(rw, "Inavalid file format", http.StatusBadRequest)
 	}
-	return imageFile, header, imageType
+	return imageFile, header, imageType, width, height
 }
 
-func resizeAnImage(rw http.ResponseWriter, imageFile multipart.File, width uint, imageType string, fileName string) {
+func resizeAnImage(rw http.ResponseWriter, imageFile multipart.File, width uint, height uint, imageType string, fileName string) {
 	if imageType != "image/gif" {
 		img, _, err := image.Decode(imageFile)
 		if err != nil {
 			fmt.Println(err)
 		}
-		resizedImages := resize.Resize(width, 0, img, resize.Lanczos2)
+		resizedImages := resize.Resize(width, height, img, resize.Lanczos2)
 		switch imageType {
 		case "image/jpeg":
 			rw.Header().Set("Content-Type", "image/jpeg")
@@ -99,7 +108,7 @@ func resizeAnImage(rw http.ResponseWriter, imageFile multipart.File, width uint,
 		}
 
 		for _, img := range gifImg.Image {
-			resizedGifImg := resize.Resize(width, 0, img, resize.Lanczos2)
+			resizedGifImg := resize.Resize(width, height, img, resize.Lanczos2)
 			palettedImg := image.NewPaletted(resizedGifImg.Bounds(), img.Palette)
 			draw.FloydSteinberg.Draw(palettedImg, resizedGifImg.Bounds(), resizedGifImg, image.ZP)
 
