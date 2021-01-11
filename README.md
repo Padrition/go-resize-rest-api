@@ -33,5 +33,7 @@ localhost:8080/
 ```
 
 When you will be on your beloved localhost:8080 you will have two options:
+
 1)Upload a file to the server. Just upload your image and press upload button.
+
 2)Resize an image with given width and height. Just upload your image set wannable dimensions and press resize button.
